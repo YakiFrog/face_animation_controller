@@ -29,10 +29,16 @@ class FaceHttpServer(Node):
         # 現在の表情を保持
         self.current_expression = "neutral"
         
+        # 現在の表示モードを保持（'face' または 'image'）
+        self.current_display_mode = "face"
+        
         # 有効な表情のリスト
         self.valid_expressions = [
             'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt'
         ]
+        
+        # 有効な表示モードのリスト
+        self.valid_display_modes = ['face', 'image']
         
         # ROS2 Publisher - 表情指示を送信
         self.expression_publisher = self.create_publisher(
@@ -107,7 +113,9 @@ class FaceHttpServer(Node):
             return jsonify({
                 "status": "running",
                 "current_expression": self.current_expression,
+                "current_display_mode": self.current_display_mode,
                 "valid_expressions": self.valid_expressions,
+                "valid_display_modes": self.valid_display_modes,
                 "node_name": self.get_name()
             })
         
@@ -115,6 +123,45 @@ class FaceHttpServer(Node):
         def health_check():
             """ヘルスチェック"""
             return jsonify({"status": "healthy"}), 200
+        
+        @self.app.route('/display_mode', methods=['GET'])
+        def get_display_mode():
+            """現在の表示モードを取得"""
+            return jsonify({"display_mode": self.current_display_mode})
+        
+        @self.app.route('/display_mode', methods=['POST'])
+        def set_display_mode():
+            """表示モードを設定"""
+            try:
+                data = request.get_json()
+                
+                if not data or 'display_mode' not in data:
+                    return jsonify({"error": "Missing 'display_mode' field"}), 400
+                
+                display_mode = data['display_mode'].strip().lower()
+                
+                # 有効な表示モードかチェック
+                if display_mode not in self.valid_display_modes:
+                    return jsonify({
+                        "error": f"Invalid display mode: {display_mode}",
+                        "valid_display_modes": self.valid_display_modes
+                    }), 400
+                
+                # 表示モードを更新
+                old_display_mode = self.current_display_mode
+                self.current_display_mode = display_mode
+                
+                self.get_logger().info(f'Display mode change: {old_display_mode} -> {display_mode}')
+                
+                return jsonify({
+                    "success": True,
+                    "display_mode": display_mode,
+                    "previous_display_mode": old_display_mode
+                }), 200
+                
+            except Exception as e:
+                self.get_logger().error(f'Error processing request: {str(e)}')
+                return jsonify({"error": str(e)}), 500
 
     def run_server(self):
         """

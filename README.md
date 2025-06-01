@@ -135,6 +135,263 @@ ros2 run face_animation_controller face_controller --ros-args \
 - `crying` - 泣き
 - `hurt` - 痛がる表情
 
+## ROS2トピック仕様
+
+### 基本トピック情報
+
+| 項目 | 値 |
+|------|-----|
+| **トピック名** | `/face_expression` (デフォルト) |
+| **メッセージタイプ** | `std_msgs/String` |
+| **QoS** | Depth 10 |
+
+### トピックにメッセージを送信する方法
+
+#### 1. コマンドラインから送信
+
+```bash
+# 基本的な送信方法
+ros2 topic pub /face_expression std_msgs/String "data: 'happy'" --once
+
+# 継続的に送信（1Hzで繰り返し）
+ros2 topic pub /face_expression std_msgs/String "data: 'angry'" --rate 1
+
+# 各表情の送信例
+ros2 topic pub /face_expression std_msgs/String "data: 'neutral'" --once
+ros2 topic pub /face_expression std_msgs/String "data: 'happy'" --once
+ros2 topic pub /face_expression std_msgs/String "data: 'angry'" --once
+ros2 topic pub /face_expression std_msgs/String "data: 'sad'" --once
+ros2 topic pub /face_expression std_msgs/String "data: 'surprised'" --once
+ros2 topic pub /face_expression std_msgs/String "data: 'crying'" --once
+ros2 topic pub /face_expression std_msgs/String "data: 'hurt'" --once
+```
+
+#### 2. Pythonノードから送信
+
+```python
+#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class FaceExpressionNode(Node):
+    def __init__(self):
+        super().__init__('face_expression_node')
+        
+        # パブリッシャーを作成
+        self.publisher = self.create_publisher(
+            String, 
+            '/face_expression',  # トピック名
+            10                   # QoS depth
+        )
+    
+    def change_expression(self, expression: str):
+        """表情を変更する"""
+        msg = String()
+        msg.data = expression  # 表情名を文字列として設定
+        self.publisher.publish(msg)
+        self.get_logger().info(f'表情を{expression}に変更しました')
+
+# 使用例
+def main():
+    rclpy.init()
+    node = FaceExpressionNode()
+    
+    # 表情を順番に変更
+    expressions = ['happy', 'angry', 'sad', 'surprised', 'crying', 'hurt', 'neutral']
+    for expr in expressions:
+        node.change_expression(expr)
+        time.sleep(2)  # 2秒待機
+    
+    rclpy.shutdown()
+```
+
+#### 3. C++ノードから送信
+
+```cpp
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+
+class FaceExpressionNode : public rclcpp::Node
+{
+public:
+    FaceExpressionNode() : Node("face_expression_node")
+    {
+        // パブリッシャーを作成
+        publisher_ = this->create_publisher<std_msgs::msg::String>(
+            "/face_expression", 10);
+    }
+    
+    void change_expression(const std::string& expression)
+    {
+        auto message = std_msgs::msg::String();
+        message.data = expression;  // 表情名を設定
+        publisher_->publish(message);
+        RCLCPP_INFO(this->get_logger(), "表情を%sに変更しました", expression.c_str());
+    }
+
+private:
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+};
+
+// 使用例
+int main(int argc, char * argv[])
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<FaceExpressionNode>();
+    
+    // 表情を変更
+    node->change_expression("happy");
+    
+    rclcpp::shutdown();
+    return 0;
+}
+```
+
+### メッセージフォーマット
+
+```yaml
+# std_msgs/String メッセージの構造
+data: string    # 表情名（文字列）
+```
+
+**有効な表情名（data フィールドに設定可能な値）:**
+- `"neutral"`
+- `"happy"`  
+- `"angry"`
+- `"sad"`
+- `"surprised"`
+- `"crying"`
+- `"hurt"`
+
+### トピック監視・デバッグ
+
+```bash
+# トピックが存在するか確認
+ros2 topic list | grep face_expression
+
+# トピックの詳細情報を表示
+ros2 topic info /face_expression
+
+# トピックの型情報を表示
+ros2 topic type /face_expression
+
+# リアルタイムでメッセージを監視
+ros2 topic echo /face_expression
+
+# トピックの送信頻度を確認
+ros2 topic hz /face_expression
+
+# トピックの帯域幅を確認
+ros2 topic bw /face_expression
+```
+
+### カスタムトピック名の使用
+
+デフォルトのトピック名（`/face_expression`）以外を使用する場合：
+
+```bash
+# カスタムトピック名でシステム起動
+ros2 launch face_animation_controller face_animation_system.launch.py topic_name:=/robot/facial_expression
+
+# カスタムトピックに送信
+ros2 topic pub /robot/facial_expression std_msgs/String "data: 'happy'" --once
+
+# 個別ノードでカスタムトピック名を使用
+ros2 run face_animation_controller face_http_server --ros-args -p topic_name:=/robot/facial_expression
+ros2 run face_animation_controller face_controller --ros-args -p topic_name:=/robot/facial_expression
+```
+
+### 統合例：センサーと連携した表情制御
+
+```python
+#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+from sensor_msgs.msg import Range
+from geometry_msgs.msg import Twist
+
+class EmotionalRobotNode(Node):
+    """センサーデータに基づいて表情を制御するロボットノード"""
+    
+    def __init__(self):
+        super().__init__('emotional_robot_node')
+        
+        # 表情制御用パブリッシャー
+        self.face_publisher = self.create_publisher(String, '/face_expression', 10)
+        
+        # センサーデータ用サブスクライバー
+        self.distance_subscription = self.create_subscription(
+            Range, '/ultrasonic_sensor', self.distance_callback, 10)
+        self.cmd_vel_subscription = self.create_subscription(
+            Twist, '/cmd_vel', self.velocity_callback, 10)
+        
+        self.current_expression = 'neutral'
+    
+    def distance_callback(self, msg):
+        """距離センサーの値に応じて表情を変更"""
+        distance = msg.range
+        
+        if distance < 0.2:  # 20cm以内 - 驚き
+            self.set_expression('surprised')
+        elif distance < 0.5:  # 50cm以内 - 幸せ
+            self.set_expression('happy')
+        elif distance > 2.0:  # 2m以上 - 悲しい
+            self.set_expression('sad')
+        else:  # 通常
+            self.set_expression('neutral')
+    
+    def velocity_callback(self, msg):
+        """移動速度に応じて表情を変更"""
+        speed = abs(msg.linear.x) + abs(msg.angular.z)
+        
+        if speed > 1.0:  # 高速移動 - 驚き
+            self.set_expression('surprised')
+        elif speed > 0.5:  # 通常移動 - 幸せ
+            self.set_expression('happy')
+    
+    def set_expression(self, expression):
+        """表情を設定（重複送信を避ける）"""
+        if expression != self.current_expression:
+            msg = String()
+            msg.data = expression
+            self.face_publisher.publish(msg)
+            self.current_expression = expression
+            self.get_logger().info(f'表情を{expression}に変更')
+
+def main():
+    rclpy.init()
+    node = EmotionalRobotNode()
+    rclpy.spin(node)
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### エラーハンドリング
+
+```python
+def safe_expression_publish(self, expression: str):
+    """安全な表情送信（バリデーション付き）"""
+    valid_expressions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt']
+    
+    if expression.lower() not in valid_expressions:
+        self.get_logger().warn(f'無効な表情: {expression}. 有効な表情: {valid_expressions}')
+        return False
+    
+    try:
+        msg = String()
+        msg.data = expression.lower()
+        self.face_publisher.publish(msg)
+        self.get_logger().info(f'表情を{expression}に変更しました')
+        return True
+    except Exception as e:
+        self.get_logger().error(f'表情送信エラー: {str(e)}')
+        return False
+```
+
 ## HTTP API仕様
 
 ### エンドポイント

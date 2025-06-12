@@ -125,7 +125,7 @@ ros2 run face_animation_controller face_controller --ros-args \
 
 ## 有効な表情
 
-以下の7種類の表情がサポートされています：
+以下の8種類の表情がサポートされています：
 
 - `neutral` - 通常の表情
 - `happy` - 笑顔
@@ -134,6 +134,7 @@ ros2 run face_animation_controller face_controller --ros-args \
 - `surprised` - 驚き
 - `crying` - 泣き
 - `hurt` - 痛がる表情
+- `wink` - ウィンク（左目を半目に、右側の口角が上がった表情）
 
 ## ROS2トピック仕様
 
@@ -263,6 +264,7 @@ data: string    # 表情名（文字列）
 - `"surprised"`
 - `"crying"`
 - `"hurt"`
+- `"wink"`
 
 ### トピック監視・デバッグ
 
@@ -375,7 +377,7 @@ if __name__ == '__main__':
 ```python
 def safe_expression_publish(self, expression: str):
     """安全な表情送信（バリデーション付き）"""
-    valid_expressions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt']
+    valid_expressions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt', 'wink']
     
     if expression.lower() not in valid_expressions:
         self.get_logger().warn(f'無効な表情: {expression}. 有効な表情: {valid_expressions}')
@@ -433,7 +435,7 @@ def safe_expression_publish(self, expression: str):
 {
   "status": "running",
   "current_expression": "neutral",
-  "valid_expressions": ["neutral", "happy", "angry", "sad", "surprised", "crying", "hurt"],
+  "valid_expressions": ["neutral", "happy", "angry", "sad", "surprised", "crying", "hurt", "wink"],
   "node_name": "face_http_server"
 }
 ```

@@ -25,7 +25,7 @@ class ExpressionPublisher(Node):
         
         # 有効な表情のリスト
         self.valid_expressions = [
-            'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt'
+            'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt', 'wink'
         ]
         
         self.get_logger().info(f'Expression Publisher started')
@@ -33,7 +33,7 @@ class ExpressionPublisher(Node):
         self.get_logger().info(f'Valid expressions: {", ".join(self.valid_expressions)}')
         self.get_logger().info('Commands:')
         self.get_logger().info('  1: neutral, 2: happy, 3: angry, 4: sad')
-        self.get_logger().info('  5: surprised, 6: crying, 7: hurt')
+        self.get_logger().info('  5: surprised, 6: crying, 7: hurt, 8: wink')
         self.get_logger().info('  q: quit, a: auto demo')
 
     def publish_expression(self, expression: str):
@@ -57,7 +57,7 @@ class ExpressionPublisher(Node):
         print("\n=== Expression Publisher Interactive Mode ===")
         print("Commands:")
         print("  1: neutral, 2: happy, 3: angry, 4: sad")
-        print("  5: surprised, 6: crying, 7: hurt")
+        print("  5: surprised, 6: crying, 7: hurt, 8: wink")
         print("  q: quit, a: auto demo")
         print("Enter command: ", end="", flush=True)
         
@@ -70,7 +70,7 @@ class ExpressionPublisher(Node):
                     break
                 elif command == 'a':
                     self.run_auto_demo()
-                elif command in '1234567':
+                elif command in '12345678':
                     expression_map = {
                         '1': 'neutral',
                         '2': 'happy', 
@@ -78,7 +78,8 @@ class ExpressionPublisher(Node):
                         '4': 'sad',
                         '5': 'surprised',
                         '6': 'crying',
-                        '7': 'hurt'
+                        '7': 'hurt',
+                        '8': 'wink'
                     }
                     self.publish_expression(expression_map[command])
                 else:

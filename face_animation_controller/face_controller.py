@@ -29,7 +29,7 @@ class FaceAnimationController(Node):
         
         # 有効な表情のリスト
         self.valid_expressions = [
-            'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt'
+            'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt', 'wink'
         ]
         
         # Subscriberの作成

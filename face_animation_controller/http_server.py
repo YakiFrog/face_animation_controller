@@ -34,7 +34,7 @@ class FaceHttpServer(Node):
         
         # 有効な表情のリスト
         self.valid_expressions = [
-            'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt'
+            'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt', 'wink'
         ]
         
         # 有効な表示モードのリスト

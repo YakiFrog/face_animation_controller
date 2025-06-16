@@ -18,7 +18,6 @@ class FaceAnimationController(Node):
         # パラメータの宣言
         self.declare_parameter('face_api_url', 'http://localhost:8080')
         self.declare_parameter('topic_name', '/face_expression')
-        self.declare_parameter('update_rate', 10.0)
         
         # パラメータの取得
         self.face_api_url = self.get_parameter('face_api_url').get_parameter_value().string_value
@@ -40,15 +39,8 @@ class FaceAnimationController(Node):
             10
         )
         
-        # 現在の表情を定期的に送信するタイマー
-        update_rate = self.get_parameter('update_rate').get_parameter_value().double_value
-        timer_period = 1.0 / update_rate  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-        
         # HTTP接続の状態
         self.is_connected = False
-        self.connection_retry_count = 0
-        self.max_retry_count = 3
         
         self.get_logger().info(f'Face Animation Controller started')
         self.get_logger().info(f'Listening to topic: {topic_name}')
@@ -82,12 +74,12 @@ class FaceAnimationController(Node):
             f'Expression change requested: {old_expression} -> {requested_expression}'
         )
         
-        # HTTP APIに表情を送信
+        # HTTP APIに表情を即座に送信
         self.send_expression_to_api(requested_expression)
 
     def send_expression_to_api(self, expression: str) -> bool:
         """
-        HTTP APIに表情データを送信
+        HTTP APIに表情データを送信（0.1秒以内での応答を目指す）
         """
         try:
             url = f"{self.face_api_url}/expression"
@@ -98,13 +90,12 @@ class FaceAnimationController(Node):
                 url, 
                 headers=headers, 
                 json=data, 
-                timeout=5.0
+                timeout=0.08  # 0.08秒でタイムアウト
             )
             
             if response.status_code == 200:
                 self.get_logger().info(f'Successfully sent expression "{expression}" to API')
                 self.is_connected = True
-                self.connection_retry_count = 0
                 return True
             else:
                 self.get_logger().error(
@@ -123,13 +114,12 @@ class FaceAnimationController(Node):
         """
         try:
             url = f"{self.face_api_url}/expression"
-            response = requests.get(url, timeout=5.0)
+            response = requests.get(url, timeout=0.08)
             
             if response.status_code == 200:
                 data = response.json()
                 if 'expression' in data:
                     self.is_connected = True
-                    self.connection_retry_count = 0
                     return data['expression']
                 else:
                     self.get_logger().warn('Invalid response format from API')
@@ -144,25 +134,6 @@ class FaceAnimationController(Node):
             self.get_logger().debug(f'HTTP request failed: {str(e)}')
             self.is_connected = False
             return None
-
-    def timer_callback(self):
-        """
-        定期的にAPIとの接続状態を確認し、必要に応じて表情を同期
-        """
-        # 接続されていない場合は再接続を試行
-        if not self.is_connected:
-            self.connection_retry_count += 1
-            if self.connection_retry_count <= self.max_retry_count:
-                self.get_logger().info(
-                    f'Attempting to reconnect to API... (attempt {self.connection_retry_count}/{self.max_retry_count})'
-                )
-                # 現在の表情を送信して接続テスト
-                self.send_expression_to_api(self.current_expression)
-            elif self.connection_retry_count == self.max_retry_count + 1:
-                self.get_logger().warn(
-                    f'Failed to connect to API after {self.max_retry_count} attempts. '
-                    'Will continue trying in background.'
-                )
 
     def publish_status(self):
         """

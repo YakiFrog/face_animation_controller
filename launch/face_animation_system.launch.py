@@ -56,7 +56,6 @@ def generate_launch_description():
         parameters=[{
             'face_api_url': LaunchConfiguration('face_api_url'),
             'topic_name': LaunchConfiguration('topic_name'),
-            'update_rate': 10.0,
         }],
         output='screen'
     )

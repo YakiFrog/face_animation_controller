@@ -79,11 +79,27 @@ class FaceHttpServer(Node):
                 
                 expression = data['expression'].strip().lower()
                 
+                # "auto"コマンドの場合は特別処理
+                if expression == 'auto':
+                    # ROS2 TOPICに"auto"を発行（face_controllerが実際の処理を行う）
+                    msg = String()
+                    msg.data = expression
+                    self.expression_publisher.publish(msg)
+                    
+                    self.get_logger().info('Auto demo command sent via HTTP')
+                    
+                    return jsonify({
+                        "success": True,
+                        "command": "auto",
+                        "message": "Auto demo started with random expressions"
+                    }), 200
+                
                 # 有効な表情かチェック
                 if expression not in self.valid_expressions:
                     return jsonify({
                         "error": f"Invalid expression: {expression}",
-                        "valid_expressions": self.valid_expressions
+                        "valid_expressions": self.valid_expressions,
+                        "special_commands": ["auto"]
                     }), 400
                 
                 # 表情を更新

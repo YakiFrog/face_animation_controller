@@ -5,6 +5,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 import time
 import sys
+import threading
 
 class ExpressionPublisher(Node):
     """
@@ -23,18 +24,91 @@ class ExpressionPublisher(Node):
         # Publisher の作成
         self.publisher = self.create_publisher(String, topic_name, 10)
         
+        # Subscriber の作成（コマンド受信用）
+        self.command_subscriber = self.create_subscription(
+            String,
+            topic_name,
+            self.expression_callback,
+            10
+        )
+        
         # 有効な表情のリスト
         self.valid_expressions = [
             'neutral', 'happy', 'angry', 'sad', 'surprised', 'crying', 'hurt', 'wink'
         ]
         
+        # 自動デモの状態管理
+        self.auto_demo_running = False
+        self.auto_demo_thread = None
+        
         self.get_logger().info(f'Expression Publisher started')
         self.get_logger().info(f'Publishing to topic: {topic_name}')
+        self.get_logger().info(f'Listening for commands on topic: {topic_name}')
         self.get_logger().info(f'Valid expressions: {", ".join(self.valid_expressions)}')
         self.get_logger().info('Commands:')
         self.get_logger().info('  1: neutral, 2: happy, 3: angry, 4: sad')
         self.get_logger().info('  5: surprised, 6: crying, 7: hurt, 8: wink')
         self.get_logger().info('  q: quit, a: auto demo')
+        self.get_logger().info('  Topic command: "auto" for auto demo')
+
+    def expression_callback(self, msg: String):
+        """
+        表情トピックからのメッセージを処理
+        """
+        command = msg.data.strip().lower()
+        
+        if command == 'auto':
+            self.get_logger().info('Auto demo command received via topic')
+            self.start_auto_demo()
+        elif command in self.valid_expressions:
+            self.get_logger().info(f'Expression command received via topic: {command}')
+            # 自分が送信したメッセージの場合はスキップ（無限ループ防止）
+            # ここでは単純にログ出力のみ行う
+        else:
+            self.get_logger().warn(f'Invalid command received via topic: {command}')
+
+    def start_auto_demo(self):
+        """
+        自動デモを別スレッドで開始
+        """
+        if self.auto_demo_running:
+            self.get_logger().warn('Auto demo is already running')
+            return
+        
+        self.auto_demo_running = True
+        self.auto_demo_thread = threading.Thread(target=self._run_auto_demo_thread)
+        self.auto_demo_thread.daemon = True
+        self.auto_demo_thread.start()
+
+    def _run_auto_demo_thread(self):
+        """
+        自動デモを実行するスレッド関数
+        """
+        try:
+            self.get_logger().info('Starting auto demo...')
+            
+            for i, expression in enumerate(self.valid_expressions):
+                if not rclpy.ok() or not self.auto_demo_running:
+                    break
+                
+                self.get_logger().info(f"Auto demo {i+1}/{len(self.valid_expressions)}: {expression}")
+                self.publish_expression(expression)
+                time.sleep(2.0)  # 2秒間隔
+            
+            self.get_logger().info('Auto demo completed!')
+            
+        except Exception as e:
+            self.get_logger().error(f'Error in auto demo: {str(e)}')
+        finally:
+            self.auto_demo_running = False
+
+    def stop_auto_demo(self):
+        """
+        自動デモを停止
+        """
+        if self.auto_demo_running:
+            self.auto_demo_running = False
+            self.get_logger().info('Auto demo stopped')
 
     def publish_expression(self, expression: str):
         """
@@ -58,7 +132,7 @@ class ExpressionPublisher(Node):
         print("Commands:")
         print("  1: neutral, 2: happy, 3: angry, 4: sad")
         print("  5: surprised, 6: crying, 7: hurt, 8: wink")
-        print("  q: quit, a: auto demo")
+        print("  q: quit, a: auto demo, s: stop auto demo")
         print("Enter command: ", end="", flush=True)
         
         while rclpy.ok():
@@ -69,7 +143,9 @@ class ExpressionPublisher(Node):
                 if command == 'q':
                     break
                 elif command == 'a':
-                    self.run_auto_demo()
+                    self.start_auto_demo()
+                elif command == 's':
+                    self.stop_auto_demo()
                 elif command in '12345678':
                     expression_map = {
                         '1': 'neutral',
@@ -94,7 +170,7 @@ class ExpressionPublisher(Node):
 
     def run_auto_demo(self):
         """
-        自動デモモードで全ての表情を順番に実行
+        自動デモモードで全ての表情を順番に実行（従来のメソッド）
         """
         print("\n=== Auto Demo Mode ===")
         print("Press Ctrl+C to stop demo")
@@ -135,7 +211,15 @@ def main(args=None):
             # 単一の表情を送信
             publisher_node.run_single_expression(expression)
         else:
-            # インタラクティブモードで実行
+            # インタラクティブモードで実行（ROS2スピンも含む）
+            import threading
+            
+            # ROS2ノードを別スレッドで実行
+            ros_thread = threading.Thread(target=lambda: rclpy.spin(publisher_node))
+            ros_thread.daemon = True
+            ros_thread.start()
+            
+            # メインスレッドでインタラクティブモードを実行
             publisher_node.run_interactive()
         
     except KeyboardInterrupt:
